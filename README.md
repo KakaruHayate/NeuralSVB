@@ -1,3 +1,10 @@
+仍然不能使用，VAE有问题
+
+<img width="580" height="270" alt="b71a9a03591ba609ce83cc053058fec1" src="https://github.com/user-attachments/assets/f1376b4e-b550-45c6-80b6-50fc2ddf9c4d" />
+
+疑似参数不匹配
+
+
 # Learning the Beauty in Songs: Neural Singing Voice Beautifier
 ---
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2202.13277)
