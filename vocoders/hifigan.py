@@ -46,6 +46,13 @@ class HifiGAN(PWG):
             lambda x: -int(re.findall(f'model_ckpt_steps_(\d+).ckpt', x.replace('\\', '/'))[0]))[0]
             print('| load HifiGAN: ', ckpt)
             self.model, self.config, self.device = load_model(config_path=config_path, checkpoint_path=ckpt)
+            # Load mel conversion matrix (VAE fmin=50→HiFi fmin=0) if available
+            self.mel_convert = None
+            conv_path = os.path.join(os.path.dirname(base_dir), 'mel_vae2hifi.npy')
+            if os.path.exists(conv_path):
+                import numpy as np
+                self.mel_convert = torch.from_numpy(np.load(conv_path)).float()
+                print(f'| Loaded mel conversion matrix from {conv_path}')
         else:
             config_path = f'{base_dir}/config.json'
             ckpt = f'{base_dir}/generator_v1'
@@ -55,7 +62,10 @@ class HifiGAN(PWG):
     def spec2wav(self, mel, **kwargs):
         device = self.device
         with torch.no_grad():
-            c = torch.FloatTensor(mel).unsqueeze(0).transpose(2, 1).to(device)
+            c = torch.FloatTensor(mel).unsqueeze(0).transpose(2, 1).to(device)  # [1, 80, T]
+            # Apply mel conversion matrix if available (VAE→HiFi mel basis shift)
+            if self.mel_convert is not None:
+                c = (self.mel_convert.to(device) @ c.squeeze(0)).unsqueeze(0)  # [1, 80, T]
             with utils.Timer('hifigan', enable=hparams['profile_infer']):
                 f0 = kwargs.get('f0')
                 if f0 is not None:
