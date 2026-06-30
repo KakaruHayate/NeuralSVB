@@ -99,6 +99,103 @@ Remember to put the pre-trained models in `checkpoints` directory.
 ### Inference from raw inputs
 WIP.
 
+---
+
+## 环境搭建与代码修复（中文）
+
+> 针对 Python 3.12 / torch 2.x / numpy 2.x / librosa 0.11+ / Windows 的兼容性修复记录。
+
+### 环境要求
+
+- Python ≥ 3.10（推荐 3.12）
+- NVIDIA GPU + CUDA（CPU 推理极慢）
+- 磁盘空间 ≥ 15GB
+
+### 快速开始
+
+```bash
+# 1. 创建虚拟环境（推荐 UV）
+uv venv --python 3.12 .venv
+
+# 2. 安装 PyTorch
+uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+
+# 3. 安装其余依赖
+uv pip install numpy scipy scikit-learn einops pyyaml tqdm h5py \
+  librosa soundfile resampy pyworld pysptk praat-parselmouth \
+  resemblyzer pycwt transformers tokenizers tensorboardX matplotlib \
+  pandas packaging chardet six jieba nltk g2p-en pypinyin \
+  webrtcvad pyloudnorm Cython scikit-image g2pm tslearn
+```
+
+### 数据预处理（Windows 用户注意）
+
+原始代码使用多进程并行处理数据，Windows 下 `multiprocessing.spawn` 会导致 CUDA DLL 加载失败（页面文件溢出）。
+提供单进程替代脚本：
+
+```bash
+# Step 1: 提取说话人嵌入（替代 save_emb.yaml）
+cd repo
+PYTHONPATH=. python ../save_spkemb_single.py \
+  --config egs/datasets/audio/PopBuTFy/save_emb.yaml \
+  --hparams "processed_data_dir=../data/raw/PopBuTFy,raw_data_dir=../data/raw/PopBuTFy"
+
+# Step 2: 数据集二值化（替代 para_bin.yaml）
+PYTHONPATH=. python ../bin_para_single.py \
+  --config egs/datasets/audio/PopBuTFy/para_bin.yaml \
+  --hparams "processed_data_dir=../data/raw/PopBuTFy,raw_data_dir=../data/raw/PopBuTFy,\
+spk_emb_data_dir=data/processed/PopBuTFy_new/spk_emb"
+```
+
+### 推理
+
+```bash
+cd repo
+CUDA_VISIBLE_DEVICES=0 PYTHONPATH=. python tasks/run.py \
+  --config egs/datasets/audio/PopBuTFy/vae_global_mle_eng.yaml \
+  --exp_name vae_mle --infer \
+  --hparams "binary_data_dir=data/binary/PopBuTFyENSpkEM_new,\
+processed_data_dir=../data/raw/PopBuTFy,\
+raw_data_dir=../data/raw/PopBuTFy,\
+vocoder_ckpt=../checkpoints/1012_hifigan_all_songs_nsf,\
+pretrain_asr_ckpt=../checkpoints/1009_pretrain_asr_english,\
+ds_workers=0,normalize_pitch=False,\
+f0_mean=268.2,f0_std=87.5"
+```
+
+### 已知问题与修复
+
+| # | 问题 | 修复 | 涉及文件 |
+|---|------|------|----------|
+| 1 | `librosa.filters.mel()` 在新版中改为 keyword-only 参数 | 改为 keyword args | `data_gen_utils.py`, `audio.py`, `stft_loss.py` |
+| 2 | `np.Inf`、`np.complex`、`np.int` 在 NumPy 2.0+ 被移除 | 替换为 `np.inf`、`complex`、`int` | `trainer.py`, `audio.py`, `pitch_utils.py` |
+| 3 | Windows 路径反斜杠导致 HiFi-GAN 检查点加载失败 | 统一路径分隔符 | `hifigan.py` |
+| 4 | Windows 多进程 CUDA DLL 溢出 | 单进程替代脚本 | `save_spkemb_single.py`, `bin_para_single.py` |
+| 5 | 数据集 phone_set 维度与 ASR 检查点不匹配 | phone_set 78 项 + 10 保留 = 88 | `phone_set.json` |
+| 6 | `_phone_encoder()` 未实现导致二值化失败 | 补充实现 | `binarize_para.py` |
+| 7 | F0 提取帧数不匹配（新版库兼容） | 先截断再 padding | `data_gen_utils.py` |
+| 8 | `saving_result_pool` 多进程写入时 hparams 丢失 | Windows 下替换为 FakePool | `tts.py`, `fs2.py` |
+| 9 | 推理时 `f0_mean/f0_std` 缺失 | 从数据计算 F0 统计，运行时传入 | `pitch_utils.py`, `hparams.py` |
+| 10 | Windows 文件名含 `?` 等非法字符 | 过滤替换 | `svb_vae_task.py` |
+
+### 音频质量问题（排查中）
+
+推理输出的 a2p（业余→专业）mel 范围约为 [-0.6, 0.7]，而正常 log-mel 范围为 [-6, -0.4]。
+语义内容存在但 HiFi-GAN 合成后为爆音。疑似 VAE 训练数据与二值化数据之间的 mel 缩放不一致。
+
+### 项目脚本说明
+
+| 脚本 | 用途 |
+|------|------|
+| `scan_imports.py` | AST 遍历全部 .py 文件提取 import，生成真实依赖清单 |
+| `save_spkemb_single.py` | 单进程版说话人嵌入提取（解决 Windows 多进程问题） |
+| `bin_para_single.py` | 单进程版数据集二值化（含 F0/对齐/多说话人嵌入） |
+| `merge_data_dir.py` | 修复 PopBuTFy.zip（带 data/ 前缀）与 text_labels.zip 的目录合并 |
+| `PATCH_SUMMARY.md` | 完整修改清单 |
+| `SETUP.md` | 详细环境搭建与运行指南 |
+
+---
+
 ## Limitations
 See Appendix D "Limitations and Solutions" in our [paper](https://aclanthology.org/2022.acl-long.549.pdf).
 

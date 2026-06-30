@@ -127,7 +127,7 @@ def process_utterance(wav_path,
     # get mel basis
     fmin = 0 if fmin == -1 else fmin
     fmax = sample_rate / 2 if fmax == -1 else fmax
-    mel_basis = librosa.filters.mel(sample_rate, fft_size, num_mels, fmin, fmax)
+    mel_basis = librosa.filters.mel(sr=sample_rate, n_fft=fft_size, n_mels=num_mels, fmin=fmin, fmax=fmax)
     mel = mel_basis @ spc
 
     if vocoder == 'pwg':
@@ -171,6 +171,10 @@ def get_pitch(wav_data, mel, hparams):
         pitch_floor=f0_min, pitch_ceiling=f0_max).selected_array['frequency']
     lpad = pad_size * 2
     rpad = len(mel) - len(f0) - lpad
+    if rpad < 0:
+        # Newer library versions have frame count mismatch: truncate F0
+        f0 = f0[:len(mel) - lpad]
+        rpad = len(mel) - len(f0) - lpad
     f0 = np.pad(f0, [[lpad, rpad]], mode='constant')
     # mel and f0 are extracted by 2 different libraries. we should force them to have the same length.
     # Attention: we find that new version of some libraries could cause ``rpad'' to be a negetive value...
@@ -322,7 +326,7 @@ def get_mel2ph(tg_fn, ph, mel, hparams):
             tg_idx += 1
     assert tg_idx == len(tg_align), (tg_idx, [x['text'] for x in tg_align])
     assert ph_idx >= len(ph_list) - 1, (ph_idx, ph_list, len(ph_list), [x['text'] for x in tg_align], tg_fn)
-    mel2ph = np.zeros([mel.shape[0]], np.int)
+    mel2ph = np.zeros([mel.shape[0]], dtype=int)
     split[0] = 0
     split[-1] = 1e8
     for i in range(len(split) - 1):

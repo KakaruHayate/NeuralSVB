@@ -93,12 +93,12 @@ def set_hparams(config='', exp_name='', hparams_str='', print_hparams=True, glob
             for k_ in k.split(".")[:-1]:
                 config_node = config_node[k_]
             k = k.split(".")[-1]
-            if v in ['True', 'False'] or type(config_node[k]) in [bool, list, dict]:
-                if type(config_node[k]) == list:
+            if v in ['True', 'False'] or type(config_node.get(k, type(''))) in [bool, list, dict]:
+                if type(config_node.get(k, type(''))) == list:
                     v = v.replace(" ", ",")
                 config_node[k] = eval(v)
             else:
-                config_node[k] = type(config_node[k])(v)
+                config_node[k] = type(config_node.get(k, type('1')))(v)
     if args_work_dir != '' and args.remove:
         answer = input("REMOVE old checkpoint? Y/N [Default: N]: ")
         if answer.lower() == "y":

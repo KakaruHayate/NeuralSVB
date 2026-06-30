@@ -339,7 +339,7 @@ class SVBVAETask(ParaPPGPretrainedTask):
                                f'generated_{self.trainer.global_step}_{hparams["gen_dir_name"]}')
         base_fn = f'[{self.results_id:06d}][{item_name}][%s]'
         if text is not None:
-            base_fn += text.replace(":", "%3A")[:80]
+            base_fn += text.replace(":", "%3A").replace("?", "").replace("/", "_").replace("\\", "_")[:80]
         base_fn = base_fn.replace(' ', '_')
 
         wavs_dict = {

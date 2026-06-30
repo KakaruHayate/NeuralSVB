@@ -34,7 +34,7 @@ def get_hop_size(hparams):
 ###########################################################################################
 def griffin_lim(S, hparams, angles=None):
     angles = np.exp(2j * np.pi * np.random.rand(*S.shape)) if angles is None else angles
-    S_complex = np.abs(S).astype(np.complex)
+    S_complex = np.abs(S).astype(complex)
     y = _istft(S_complex * angles, hparams)
     for i in range(hparams['griffin_lim_iters']):
         angles = np.exp(1j * np.angle(_stft(y, hparams)))
@@ -97,7 +97,7 @@ def _mel_to_linear(mel_spectrogram, hparams):
 
 def _build_mel_basis(hparams):
     assert hparams['fmax'] <= hparams['audio_sample_rate'] // 2
-    return librosa.filters.mel(hparams['audio_sample_rate'], hparams['fft_size'], n_mels=hparams['audio_num_mel_bins'],
+    return librosa.filters.mel(sr=hparams['audio_sample_rate'], n_fft=hparams['fft_size'], n_mels=hparams['audio_num_mel_bins'],
                                fmin=hparams['fmin'], fmax=hparams['fmax'])
 
 

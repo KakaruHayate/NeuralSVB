@@ -5,3 +5,7 @@ __pycache__/
 data/*
 checkpoints/*
 local_tools/dtw
+# Generated outputs
+infer_output.log
+*.output
+.DS_Store

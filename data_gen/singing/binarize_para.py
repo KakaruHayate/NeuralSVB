@@ -217,6 +217,29 @@ class PopBuTFyENBinarizer(SingingBinarizer):
         return res
 
 class PopBuTFyENSpkEMBinarizer(PopBuTFyENBinarizer):
+    def _phone_encoder(self):
+        from data_gen.tts.data_gen_utils import build_phone_encoder
+        from utils.text_encoder import TokenTextEncoder
+        import json
+        data_dir = hparams['binary_data_dir']
+        phone_set_file = os.path.join(data_dir, 'phone_set.json')
+        if not os.path.exists(phone_set_file):
+            phone_set = set()
+            for item_name in self.item_names:
+                txt_fn = self.item2wavfn[item_name].replace('.mp3', '.txt')
+                if os.path.exists(txt_fn):
+                    txt = open(txt_fn).readlines()[0].strip()
+                    for ch in txt:
+                        phone_set.add(ch)
+            phone_set = sorted(list(phone_set))
+            os.makedirs(data_dir, exist_ok=True)
+            json.dump(phone_set, open(phone_set_file, 'w'))
+            print(f"| Build phone set. Size: {len(phone_set)}")
+        else:
+            phone_set = json.load(open(phone_set_file))
+            print(f"| Load phone set. Size: {len(phone_set)}")
+        return TokenTextEncoder(None, vocab_list=phone_set, replace_oov=',')
+
     def meta_data(self, prefix):
         if prefix == 'valid':
             item_names = self.valid_item_names

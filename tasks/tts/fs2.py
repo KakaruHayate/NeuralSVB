@@ -26,6 +26,23 @@ import torch.distributions
 import numpy as np
 from modules.commons.ssim import ssim
 
+class FakeResult:
+    """Mimics multiprocessing.pool.AsyncResult."""
+    def __init__(self, value): self._value = value
+    def get(self, timeout=None): return self._value
+    def wait(self, timeout=None): pass
+
+
+class FakePool:
+    """Mimics multiprocessing.Pool but runs synchronously (for Windows compat)."""
+    def apply_async(self, func, args=(), kwds={}, callback=None):
+        result = func(*args, **kwds)
+        if callback: callback(result)
+        return FakeResult(result)
+    def close(self): pass
+    def join(self): pass
+
+
 class FastSpeech2Task(TtsTask):
     def __init__(self):
         super(FastSpeech2Task, self).__init__()
@@ -370,7 +387,11 @@ class FastSpeech2Task(TtsTask):
 
     def after_infer(self, predictions):
         if self.saving_result_pool is None and not hparams['profile_infer']:
-            self.saving_result_pool = Pool(min(int(os.getenv('N_PROC', os.cpu_count())), 16))
+            # On Windows, use FakePool to avoid multiprocessing hparams issue
+            if os.name == 'nt':
+                self.saving_result_pool = FakePool()
+            else:
+                self.saving_result_pool = Pool(min(int(os.getenv('N_PROC', os.cpu_count())), 16))
             self.saving_results_futures = []
         predictions = utils.unpack_dict_to_list(predictions)
         t = tqdm(predictions)

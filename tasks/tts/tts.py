@@ -108,7 +108,12 @@ class TtsTask(BaseTask):
 
 
     def test_start(self):
-        self.saving_result_pool = Pool(8)
+        # On Windows, use fake sync pool to avoid multiprocessing hparams issues
+        if os.name == 'nt':
+            from tasks.tts.fs2 import FakePool
+            self.saving_result_pool = FakePool()
+        else:
+            self.saving_result_pool = Pool(8)
         self.saving_results_futures = []
         self.vocoder: BaseVocoder = get_vocoder_cls(hparams)()
         if hparams.get('pe_enable') is not None and hparams['pe_enable']:

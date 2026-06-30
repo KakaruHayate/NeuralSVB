@@ -56,9 +56,9 @@ class BaseTTSDataset(BaseDataset):
         hparams = self.hparams
         item = self._get_item(index)
         if item.get('prof_mel') is not None:
-            assert max(len(item['mel']), len(item['prof_mel'])) == self.sizes[index], (len(item['mel']), self.sizes[index])
+            assert max(len(item['mel']), len(item['prof_mel'])) == int(self.sizes[index]), (len(item['mel']), int(self.sizes[index]))
         else:
-            assert len(item['mel']) == self.sizes[index], (len(item['mel']), self.sizes[index])
+            assert len(item['mel']) == int(self.sizes[index]), (len(item['mel']), int(self.sizes[index]))
         max_frames = hparams['max_frames']
         spec = torch.Tensor(item['mel'])[:max_frames]
         max_frames = spec.shape[0] // hparams['frames_multiple'] * hparams['frames_multiple']

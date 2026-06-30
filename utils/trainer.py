@@ -68,7 +68,7 @@ class Trainer:
         self.num_ckpt_keep = num_ckpt_keep
         self.save_best = save_best
         self.monitor_op = np.less if monitor_mode == 'min' else np.greater
-        self.best_val_results = np.Inf if monitor_mode == 'min' else -np.Inf
+        self.best_val_results = np.inf if monitor_mode == 'min' else -np.inf
         self.mode = 'min'
 
         # allow int, string and gpu list

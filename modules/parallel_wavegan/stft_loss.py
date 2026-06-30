@@ -42,7 +42,7 @@ class STFTLoss(torch.nn.Module):
         y_mag = stft(y, self.fft_size, self.shift_size, self.win_length, self.window)
         if self.use_mel_loss:
             if self.mel_basis is None:
-                self.mel_basis = torch.from_numpy(librosa.filters.mel(22050, self.fft_size, 80)).cuda().T
+                self.mel_basis = torch.from_numpy(librosa.filters.mel(sr=22050, n_fft=self.fft_size, n_mels=80)).cuda().T
             x_mag = x_mag @ self.mel_basis
             y_mag = y_mag @ self.mel_basis
 
