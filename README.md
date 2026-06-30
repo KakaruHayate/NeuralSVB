@@ -178,10 +178,28 @@ f0_mean=268.2,f0_std=87.5"
 | 9 | 推理时 `f0_mean/f0_std` 缺失 | 从数据计算 F0 统计，运行时传入 | `pitch_utils.py`, `hparams.py` |
 | 10 | Windows 文件名含 `?` 等非法字符 | 过滤替换 | `svb_vae_task.py` |
 
-### 音频质量问题（排查中）
+### 音频质量问题（结题）
 
 推理输出的 a2p（业余→专业）mel 范围约为 [-0.6, 0.7]，而正常 log-mel 范围为 [-6, -0.4]。
-语义内容存在但 HiFi-GAN 合成后为爆音。疑似 VAE 训练数据与二值化数据之间的 mel 缩放不一致。
+语义内容存在但 HiFi-GAN 合成后为爆音。
+
+**完整排查结论：**
+
+| 假设 | 验证结果 |
+|------|----------|
+| librosa API 导致 mel 计算错误 | ❌ 已修复 keyword args |
+| F0 归一化缺失（f0_mean/f0_std = None） | ❌ 从数据统计并传入后无改善 |
+| HiFi-GAN 声码器本身问题 | ❌ GT mel 过声码器输出正常（mean≈0, std≈0.03） |
+| VAE→HiFi mel 基不匹配（fmin=50 vs 0） | ❌ 重采样 + 分布纠正后 VAE 输出仍过于平滑（std=0.012 vs GT 0.029） |
+| Git 历史中 MrZixi 的 param scales 改动 | ❌ 全部是 NaN/Inf debug + epsilon 微调，无行为级改动 |
+| VAE 检查点训练数据不匹配 | ✅ `checkpoints/vae_mle/config.yaml` 中 `binary_data_dir: molar_long_english_new`，**非 PopBuTFy** |
+
+**根因：`1030_vae_mle` 预训练权重对应的训练数据是 Molar 数据集**（内部名 `molar_long_english_new`），而非 PopBuTFy。VAE 解码器在新数据上出现后验坍缩（posterior collapse），输出的 mel 方差极小（std ≈ 0.19 vs 目标 1.02），导致 HiFi-GAN 合成后音量偏低且含爆音。
+
+**解决方案：**
+1. 在 PopBuTFy 上重新训练 VAE（需要原训练流程）
+2. 或获取与 PopBuTFy 数据分布匹配的 VAE 权重
+3. 或在 Molar 数据集上运行推理
 
 ### 项目脚本说明
 
